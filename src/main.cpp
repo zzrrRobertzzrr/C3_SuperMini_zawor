@@ -27,7 +27,7 @@ void setup()
   pinMode(pinRelay, OUTPUT);              // Ustawienie pinu przekaźnika jako wyjście
   pinMode(pinLimitSwitch1, INPUT_PULLUP); // Ustawienie pinu krańcówki jako wejście z podciąganiem
   pinMode(pinLimitSwitch2, INPUT_PULLUP); // Ustawienie pinu krańcówki jako wejście z podciąganiem
-  digitalWrite(pinQ4, HIGH);              // Ustawienie pinu Q4 w stan niski (odcięcie GND od sekcji zasilania przekaźnika i silnika)
+  digitalWrite(pinQ4, LOW);               // Ustawienie pinu Q4 w stan niski (odcięcie GND od sekcji zasilania przekaźnika i silnika)
   digitalWrite(pinRelay, LOW);            // Ustawienie pinu przekaźnika w stan niski (wyłączenie przekaźnika)
 
   // esp_sleep_enable_uart_wakeup(0); // 0 = UART0, czyli Serial na RX0
@@ -48,26 +48,34 @@ void loop()
     }
     if (data == "ZAW:close")
     {
-
-      Serial.println("zaw_close");
+      digitalWrite(pinQ4, HIGH);
       digitalWrite(pinRelay, HIGH); // Wyłącz przekaźnik
+      Serial.println("zaw_close");
     }
     if (data == "ZAW:open")
     {
-      Serial.println("zaw_open");
+      digitalWrite(pinQ4, HIGH);
       digitalWrite(pinRelay, LOW); // Włącz przekaźnik
+      Serial.println("zaw_open");
     }
     data = "";
     // Serial.print("Z HC-12: ");
     // Serial.println(data);
   }
-  // Jeśli chcesz coś wysłać do HC-12 co 5s:
-  // static unsigned long lastSend = 0;
-  // if (millis() - lastSend > 5000)
-  // {
-  //   HC12.println("Test od ESP");
-  //   lastSend = millis();
-  // }
+
+  if (digitalRead(pinRelay) == HIGH && digitalRead(pinLimitSwitch1) == LOW && digitalRead(pinLimitSwitch2) == HIGH)
+  {
+    digitalWrite(pinQ4, LOW); // Wyłącz masę
+    Serial.println("Zawór zamkniety");
+    HC12.println("ZAW:closed");
+    
+  }
+  else if (digitalRead(pinRelay) == LOW && digitalRead(pinLimitSwitch1) == HIGH && digitalRead(pinLimitSwitch2) == LOW)
+  {
+    digitalWrite(pinQ4, LOW); // Wyłącz masę
+    Serial.println("Zawór otwarty");
+    HC12.println("ZAW:opened");
+  }
 
   // static unsigned long lastSend2 = 0;
   // if (millis() - lastSend2 > 20000)
