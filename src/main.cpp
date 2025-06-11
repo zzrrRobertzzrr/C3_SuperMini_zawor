@@ -30,8 +30,8 @@ void setup()
   pinMode(pinRelay, OUTPUT);              // Ustawienie pinu przekaźnika jako wyjście
   pinMode(pinLimitSwitch1, INPUT_PULLUP); // Ustawienie pinu krańcówki jako wejście z podciąganiem
   pinMode(pinLimitSwitch2, INPUT_PULLUP); // Ustawienie pinu krańcówki jako wejście z podciąganiem
-  digitalWrite(pinQ4, LOW);               // Ustawienie pinu Q4 w stan niski (odcięcie GND od sekcji zasilania przekaźnika i silnika)
-  digitalWrite(pinRelay, HIGH);           // Ustawienie pinu przekaźnika w stan niski (wyłączenie przekaźnika)
+  digitalWrite(pinQ4, LOW);               // LOW wyłacza zasilanie z MOSFETA na przekaźnik
+  digitalWrite(pinRelay, LOW);            // HIGH (włączona cewka przekaźnika)
 
   // esp_sleep_enable_uart_wakeup(0); // 0 = UART0, czyli Serial na RX0
 
@@ -52,14 +52,14 @@ void loop()
     if (data == "ZAW:close")
     {
       digitalWrite(pinQ4, HIGH);
-      digitalWrite(pinRelay, HIGH); // Wyłącz przekaźnik
+      digitalWrite(pinRelay, HIGH); // Włącz przekaźnik
       Serial.println("zaw_close");
       Flaga_LimitSwitch1 = true;
     }
-    if (data == "ZAW:open")
+    if (data == "ZAW:open") // Otwórz zawór (niebieski)
     {
       digitalWrite(pinQ4, HIGH);
-      digitalWrite(pinRelay, LOW); // Włącz przekaźnik
+      digitalWrite(pinRelay, LOW); // Wyłącz przekaźnik
       Serial.println("zaw_open");
       Flaga_LimitSwitch2 = true;
     }
@@ -70,14 +70,16 @@ void loop()
 
   if (/*digitalRead(pinRelay) == HIGH && */ Flaga_LimitSwitch1 == true && digitalRead(pinLimitSwitch1) == LOW /* && digitalRead(pinLimitSwitch2) == LOW*/)
   {
-    digitalWrite(pinQ4, LOW); // Wyłącz masę
+    digitalWrite(pinQ4, LOW);    // Wyłącz masę
+    digitalWrite(pinRelay, LOW); // Wyłącz przekaźnik
     Serial.println("Zawór zamkniety");
     HC12.println("ZAW:closed");
     Flaga_LimitSwitch1 = false; // Reset flagi krańcówki 1
   }
   else if (/*digitalRead(pinRelay) == LOW && */ Flaga_LimitSwitch2 == true && digitalRead(pinLimitSwitch2) == LOW /* && digitalRead(pinLimitSwitch2) == HIGH*/)
   {
-    digitalWrite(pinQ4, LOW); // Wyłącz masę
+    digitalWrite(pinQ4, LOW);    // Wyłącz masę
+    digitalWrite(pinRelay, LOW); // Wyłącz przekaźnik
     Serial.println("Zawór otwarty");
     HC12.println("ZAW:opened");
     Flaga_LimitSwitch2 = false; // Reset flagi krańcówki 2
