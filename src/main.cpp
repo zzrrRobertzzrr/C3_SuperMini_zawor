@@ -8,12 +8,15 @@
 #define HC12_TX 21      // GPIO21 do HC-12 RX
 HardwareSerial HC12(1); // UART1
 
-#define pinQ4 7           // Q4 odcięcie GND od sekcji zasilania przekaźnika i silnika
+#define pinQ4 7           // Q4 odcięcie zasilania od sekcji zasilania przekaźnika i silnika
 #define pinRelay 10       // wł/wył przekaźnik
 #define pinLimitSwitch1 1 // krańcówka
 #define pinLimitSwitch2 2 // krańcówka
 
-#define LED 8 // Define the LED_BUILTIN pin number
+#define LED 8                    // Define the LED_BUILTIN pin number
+bool Flaga_LimitSwitch1 = false; // Flaga krańcówki 1
+bool Flaga_LimitSwitch2 = false; // Flaga krańcówki 2
+
 void setup()
 {
   Serial.begin(9600);
@@ -28,7 +31,7 @@ void setup()
   pinMode(pinLimitSwitch1, INPUT_PULLUP); // Ustawienie pinu krańcówki jako wejście z podciąganiem
   pinMode(pinLimitSwitch2, INPUT_PULLUP); // Ustawienie pinu krańcówki jako wejście z podciąganiem
   digitalWrite(pinQ4, LOW);               // Ustawienie pinu Q4 w stan niski (odcięcie GND od sekcji zasilania przekaźnika i silnika)
-  digitalWrite(pinRelay, LOW);            // Ustawienie pinu przekaźnika w stan niski (wyłączenie przekaźnika)
+  digitalWrite(pinRelay, HIGH);           // Ustawienie pinu przekaźnika w stan niski (wyłączenie przekaźnika)
 
   // esp_sleep_enable_uart_wakeup(0); // 0 = UART0, czyli Serial na RX0
 
@@ -51,30 +54,33 @@ void loop()
       digitalWrite(pinQ4, HIGH);
       digitalWrite(pinRelay, HIGH); // Wyłącz przekaźnik
       Serial.println("zaw_close");
+      Flaga_LimitSwitch1 = true;
     }
     if (data == "ZAW:open")
     {
       digitalWrite(pinQ4, HIGH);
       digitalWrite(pinRelay, LOW); // Włącz przekaźnik
       Serial.println("zaw_open");
+      Flaga_LimitSwitch2 = true;
     }
     data = "";
     // Serial.print("Z HC-12: ");
     // Serial.println(data);
   }
 
-  if (digitalRead(pinRelay) == HIGH && digitalRead(pinLimitSwitch1) == LOW && digitalRead(pinLimitSwitch2) == HIGH)
+  if (/*digitalRead(pinRelay) == HIGH && */ Flaga_LimitSwitch1 == true && digitalRead(pinLimitSwitch1) == LOW /* && digitalRead(pinLimitSwitch2) == LOW*/)
   {
     digitalWrite(pinQ4, LOW); // Wyłącz masę
     Serial.println("Zawór zamkniety");
     HC12.println("ZAW:closed");
-    
+    Flaga_LimitSwitch1 = false; // Reset flagi krańcówki 1
   }
-  else if (digitalRead(pinRelay) == LOW && digitalRead(pinLimitSwitch1) == HIGH && digitalRead(pinLimitSwitch2) == LOW)
+  else if (/*digitalRead(pinRelay) == LOW && */ Flaga_LimitSwitch2 == true && digitalRead(pinLimitSwitch2) == LOW /* && digitalRead(pinLimitSwitch2) == HIGH*/)
   {
     digitalWrite(pinQ4, LOW); // Wyłącz masę
     Serial.println("Zawór otwarty");
     HC12.println("ZAW:opened");
+    Flaga_LimitSwitch2 = false; // Reset flagi krańcówki 2
   }
 
   // static unsigned long lastSend2 = 0;
