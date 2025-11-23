@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <arduino-timer.h>
+
 #include <esp_wifi.h> // Do zaawansowanego zarządzania WiFi
 #include <esp_bt.h>
 #include <esp_sleep.h>
@@ -13,9 +15,29 @@ HardwareSerial HC12(1); // UART1
 #define pinLimitSwitch1 1 // krańcówka
 #define pinLimitSwitch2 2 // krańcówka
 
+int czas_odciecia = 10000; // czas odcięcia zasilania po aktywacji przekaźnika w ms
+
 #define LED 8                    // Define the LED_BUILTIN pin number
 bool Flaga_LimitSwitch1 = false; // Flaga krańcówki 1
 bool Flaga_LimitSwitch2 = false; // Flaga krańcówki 2
+
+// jeden slot, czas z millis()
+Timer<> timer;
+// uchwyt na timeout (początkowo brak zadania)
+Timer<>::Task watchdogTask = nullptr;
+
+// auto timer = timer_create_default();
+// Timer<>::Task watchdogTask = nullptr; // ta linia to jeśli chcialbym zrobic uchwyt ale nie jest konieczna
+
+bool safetyTimeout(void *)
+{
+  Serial.println("Brak potwierdzenia w 15 s – odcinam zasilanie");
+  digitalWrite(pinQ4, LOW);
+  digitalWrite(pinRelay, LOW);
+  Flaga_LimitSwitch1 = false;
+  Flaga_LimitSwitch2 = false;
+  return false; // jednorazowo
+}
 
 void setup()
 {
@@ -54,6 +76,12 @@ void loop()
       digitalWrite(pinQ4, HIGH);
       digitalWrite(pinRelay, HIGH); // Włącz przekaźnik
       Serial.println("zaw_close");
+      // alternatywna metoda zatrzymywania tasków
+      if (watchdogTask)
+      {
+        timer.cancel(watchdogTask); // timer.cancel() bez argumentów anuluje wszystkie taski
+      }
+      timer.in(czas_odciecia, safetyTimeout);
       Flaga_LimitSwitch1 = true;
     }
     if (data == "ZAW:open") // Otwórz zawór (niebieski)
@@ -61,6 +89,11 @@ void loop()
       digitalWrite(pinQ4, HIGH);
       digitalWrite(pinRelay, LOW); // Wyłącz przekaźnik
       Serial.println("zaw_open");
+      if (watchdogTask)
+      {
+        timer.cancel(watchdogTask); // timer.cancel() bez argumentów anuluje wszystkie taski
+      }
+      timer.in(czas_odciecia, safetyTimeout);
       Flaga_LimitSwitch2 = true;
     }
     data = "";
@@ -72,6 +105,10 @@ void loop()
   {
     digitalWrite(pinQ4, LOW);    // Wyłącz masę
     digitalWrite(pinRelay, LOW); // Wyłącz przekaźnik
+    if (watchdogTask)
+    {
+      timer.cancel(watchdogTask); // timer.cancel() bez argumentów anuluje wszystkie taski
+    }
     Serial.println("Zawór zamkniety");
     HC12.println("ZAW:closed");
     Flaga_LimitSwitch1 = false; // Reset flagi krańcówki 1
@@ -80,10 +117,16 @@ void loop()
   {
     digitalWrite(pinQ4, LOW);    // Wyłącz masę
     digitalWrite(pinRelay, LOW); // Wyłącz przekaźnik
+    if (watchdogTask)
+    {
+      timer.cancel(watchdogTask); // timer.cancel() bez argumentów anuluje wszystkie taski
+    }
     Serial.println("Zawór otwarty");
     HC12.println("ZAW:opened");
     Flaga_LimitSwitch2 = false; // Reset flagi krańcówki 2
   }
+
+  timer.tick();
 
   // static unsigned long lastSend2 = 0;
   // if (millis() - lastSend2 > 20000)
